@@ -167,22 +167,39 @@ class ChessEvaluator:
                 outputs = self.model(**inputs)
                 logits = outputs.logits[:, -1, :] / max(temperature, 1e-6)
 
-            # --- Mask everything except legal moves ---
-                mask = torch.full_like(logits, float("-inf"))
+          
+
+                NEG = -1e9
+                mask = torch.full_like(logits, NEG)
                 mask[:, allowed_ids] = 0.0
                 logits = logits + mask
 
-            # Optional: avoid repeating already tried samples (within retries)
                 if tried:
-                    logits[:, list(tried)] = float("-inf")
+                    logits[:, list(tried)] = NEG
 
+    
+
+   
             # Apply top-k (après le masque légal)
                 if top_k and top_k > 0:
-                    k = min(top_k, logits.size(-1))
+                    k = min(top_k, len(allowed_ids))
                     thresh = torch.topk(logits, k)[0][..., -1, None]
-                    logits = logits.masked_fill(logits < thresh, float("-inf"))
+                    logits = logits.masked_fill(logits < thresh, NEG)
+                finite_mask = torch.isfinite(logits)
+                if finite_mask.sum().item() == 0:
+                    fallback_move = next(iter(board.legal_moves), None)
+                    if fallback_move is not None:
+                        return fallback_move.uci(), retry
+                    return None, retry
+                
+                logits = logits - logits.max(dim=-1, keepdim=True).values
 
                 probs = torch.softmax(logits, dim=-1)
+                if (not torch.isfinite(probs).all()) or (probs.sum() <= 0):
+                    fallback_move = next(iter(board.legal_moves), None)
+                    if fallback_move is not None:
+                        return fallback_move.uci(), retry
+                    return None, retry
                 next_token = torch.multinomial(probs, num_samples=1)  # shape (1,1)
 
             next_id = int(next_token.item())
