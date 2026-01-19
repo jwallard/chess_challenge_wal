@@ -55,7 +55,7 @@ def main():
         return 1
 
     # Import custom classes to register them
-    from src.model import ChessConfig, ChessForCausalLM
+    from src.model import ChessForCausalLM
     from src.tokenizer import ChessTokenizer
 
     # Load model and tokenizer
@@ -85,9 +85,9 @@ def main():
         # Register model for AutoModelForCausalLM so custom architectures load correctly
         # This adds the 'auto_map' field to config.json
         model.config.auto_map = {
-            "AutoConfig": "model.ChessConfig",
-            "AutoModelForCausalLM": "model.ChessForCausalLM",
-        }
+    "AutoModelForCausalLM": "model.ChessForCausalLM",
+}
+
         
         # Save model and tokenizer
         model.save_pretrained(tmp_path)
